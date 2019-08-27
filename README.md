@@ -1,2 +1,2 @@
-# ndm-provisioner
-CSI based Node Device Manager provisioner
+# storage-provisioner
+Simplified storage operations using Kubernetes & CSI.
