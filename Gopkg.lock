@@ -665,7 +665,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:c660846ca9485440a8db2c0e9ad9711a8f753b877cf6f8c639e3e8db656200a8"
+  digest = "1:6ddddc25ebc9fe1d2a744bfbe41caebdd5f2bdc7e5688b79298dd143cdee4b7b"
   name = "k8s.io/code-generator"
   packages = [
     "cmd/client-gen",
@@ -678,8 +678,6 @@
     "cmd/client-gen/types",
     "cmd/deepcopy-gen",
     "cmd/deepcopy-gen/args",
-    "cmd/defaulter-gen",
-    "cmd/defaulter-gen/args",
     "cmd/informer-gen",
     "cmd/informer-gen/args",
     "cmd/informer-gen/generators",
@@ -705,12 +703,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:572984b077226ccb4756018e9d2599dd91d5f202cab58a0d09bea0e0bf9dd9fe"
+  digest = "1:b82da38073136a380b13a84946c359145c608f1146fc6babefe6c4e7891df156"
   name = "k8s.io/gengo"
   packages = [
     "args",
     "examples/deepcopy-gen/generators",
-    "examples/defaulter-gen/generators",
     "examples/set-gen/sets",
     "generator",
     "namer",
@@ -802,7 +799,6 @@
     "k8s.io/client-go/util/workqueue",
     "k8s.io/code-generator/cmd/client-gen",
     "k8s.io/code-generator/cmd/deepcopy-gen",
-    "k8s.io/code-generator/cmd/defaulter-gen",
     "k8s.io/code-generator/cmd/informer-gen",
     "k8s.io/code-generator/cmd/lister-gen",
     "k8s.io/csi-translation-lib",
