@@ -27,11 +27,16 @@ var (
 	AddToScheme   = SchemeBuilder.AddToScheme
 )
 
-// GroupName is the group name used in this package.
-const GroupName = "ddp.mayadata.io"
+const (
+	// GroupName of the API
+	GroupName = "ddp.mayadata.io"
+
+	// Version of the API
+	Version = "v1alpha1"
+)
 
 // SchemeGroupVersion is the group version used to register these objects.
-var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha1"}
+var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: Version}
 
 // Resource takes an unqualified resource and returns a Group-qualified GroupResource.
 func Resource(resource string) schema.GroupResource {

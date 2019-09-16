@@ -30,38 +30,65 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 
-	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/kubernetes-csi/csi-lib-utils/connection"
+	ddpkubernetes "github.com/AmitKumarDas/storage-provisioner/pkg/client/generated/clientset/versioned"
+	ddpinformers "github.com/AmitKumarDas/storage-provisioner/pkg/client/generated/informers/externalversions"
+	"github.com/AmitKumarDas/storage-provisioner/pkg/storage"
 	"github.com/kubernetes-csi/csi-lib-utils/leaderelection"
-	"github.com/kubernetes-csi/csi-lib-utils/rpc"
-	"github.com/kubernetes-csi/external-attacher/pkg/attacher"
-	"github.com/kubernetes-csi/external-attacher/pkg/controller"
-	"google.golang.org/grpc"
 )
 
 const (
-
-	// Default timeout of short CSI calls like GetPluginInfo
-	csiTimeout = time.Second
-
 	leaderElectionTypeLeases     = "leases"
 	leaderElectionTypeConfigMaps = "configmaps"
+
+	controllerName = "ddp-storage-provisioner"
 )
 
 // Command line flags
 var (
-	kubeconfig    = flag.String("kubeconfig", "", "Absolute path to the kubeconfig file. Required only when running out of cluster.")
-	resync        = flag.Duration("resync", 10*time.Minute, "Resync interval of the controller.")
-	csiAddress    = flag.String("csi-address", "/run/csi/socket", "Address of the CSI driver socket.")
-	showVersion   = flag.Bool("version", false, "Show version.")
-	timeout       = flag.Duration("timeout", 15*time.Second, "Timeout for waiting for attaching or detaching the volume.")
-	workerThreads = flag.Uint("worker-threads", 10, "Number of attacher worker threads")
+	kubeconfig = flag.String(
+		"kubeconfig", "",
+		`Absolute path to the kubeconfig file. 
+		Required only when running outside of cluster.`,
+	)
 
-	retryIntervalStart = flag.Duration("retry-interval-start", time.Second, "Initial retry interval of failed create volume or deletion. It doubles with each failure, up to retry-interval-max.")
-	retryIntervalMax   = flag.Duration("retry-interval-max", 5*time.Minute, "Maximum retry interval of failed create volume or deletion.")
+	resync = flag.Duration(
+		"resync", 10*time.Minute,
+		"Resync interval of the controller.",
+	)
 
-	enableLeaderElection    = flag.Bool("leader-election", false, "Enable leader election.")
-	leaderElectionNamespace = flag.String("leader-election-namespace", "", "Namespace where the leader election resource lives. Defaults to the pod namespace if not set.")
+	showVersion = flag.Bool("version", false, "Shows storage-provisioner's version.")
+
+	timeout = flag.Duration(
+		"timeout", 15*time.Second,
+		"Timeout for waiting for attaching or detaching the volume.",
+	)
+
+	workerThreads = flag.Uint(
+		"worker-threads", 10,
+		"Number of storage provisioner worker threads",
+	)
+
+	retryIntervalStart = flag.Duration(
+		"retry-interval-start", time.Second,
+		`Initial retry interval of failed create volume or delete volume. 
+		It doubles with each failure, up to retry-interval-max.`,
+	)
+
+	retryIntervalMax = flag.Duration(
+		"retry-interval-max", 5*time.Minute,
+		"Maximum retry interval of failed create volume or delete volume.",
+	)
+
+	enableLeaderElection = flag.Bool(
+		"leader-election", false,
+		"Enable leader election.",
+	)
+
+	leaderElectionNamespace = flag.String(
+		"leader-election-namespace", "",
+		`Namespace where the leader election resource lives. 
+		Defaults to this pod namespace if not set.`,
+	)
 )
 
 var (
@@ -84,7 +111,8 @@ func main() {
 	}
 	klog.Infof("Version: %s", version)
 
-	// Create the client config. Use kubeconfig if given, otherwise assume in-cluster.
+	// Create the kubernetes client config.
+	// Use kubeconfig if given, otherwise assume in-cluster.
 	config, err := buildConfig(*kubeconfig)
 	if err != nil {
 		klog.Error(err.Error())
@@ -102,73 +130,48 @@ func main() {
 		os.Exit(1)
 	}
 
+	ddpClientset, err := ddpkubernetes.NewForConfig(config)
+	if err != nil {
+		klog.Error(err.Error())
+		os.Exit(1)
+	}
+
 	factory := informers.NewSharedInformerFactory(clientset, *resync)
-	var handler controller.Handler
-	// Connect to CSI.
-	csiConn, err := connection.Connect(*csiAddress)
-	if err != nil {
-		klog.Error(err.Error())
-		os.Exit(1)
-	}
+	ddpFactory := ddpinformers.NewSharedInformerFactory(ddpClientset, *resync)
 
-	err = rpc.ProbeForever(csiConn, *timeout)
-	if err != nil {
-		klog.Error(err.Error())
-		os.Exit(1)
-	}
-
-	// Find driver name.
-	ctx, cancel := context.WithTimeout(context.Background(), csiTimeout)
-	defer cancel()
-	csiAttacher, err := rpc.GetDriverName(ctx, csiConn)
-	if err != nil {
-		klog.Error(err.Error())
-		os.Exit(1)
-	}
-	klog.V(2).Infof("CSI driver name: %q", csiAttacher)
-
-	supportsService, err := supportsPluginControllerService(ctx, csiConn)
-	if err != nil {
-		klog.Error(err.Error())
-		os.Exit(1)
-	}
-	if !supportsService {
-		handler = controller.NewTrivialHandler(clientset)
-		klog.V(2).Infof("CSI driver does not support Plugin Controller Service, using trivial handler")
-	} else {
-		// Find out if the driver supports attach/detach.
-		supportsAttach, supportsReadOnly, err := supportsControllerPublish(ctx, csiConn)
-		if err != nil {
-			klog.Error(err.Error())
-			os.Exit(1)
-		}
-		if supportsAttach {
-			pvLister := factory.Core().V1().PersistentVolumes().Lister()
-			nodeLister := factory.Core().V1().Nodes().Lister()
-			vaLister := factory.Storage().V1beta1().VolumeAttachments().Lister()
-			csiNodeLister := factory.Storage().V1beta1().CSINodes().Lister()
-			attacher := attacher.NewAttacher(csiConn)
-			handler = controller.NewCSIHandler(clientset, csiAttacher, attacher, pvLister, nodeLister, csiNodeLister, vaLister, timeout, supportsReadOnly)
-			klog.V(2).Infof("CSI driver supports ControllerPublishUnpublish, using real CSI handler")
-		} else {
-			handler = controller.NewTrivialHandler(clientset)
-			klog.V(2).Infof("CSI driver does not support ControllerPublishUnpublish, using trivial handler")
-		}
-	}
-
-	ctrl := controller.NewCSIAttachController(
-		clientset,
-		csiAttacher,
-		handler,
-		factory.Storage().V1beta1().VolumeAttachments(),
-		factory.Core().V1().PersistentVolumes(),
+	storageQ := workqueue.NewNamedRateLimitingQueue(
 		workqueue.NewItemExponentialFailureRateLimiter(*retryIntervalStart, *retryIntervalMax),
+		"ddp-storage-q",
+	)
+	pvcQ := workqueue.NewNamedRateLimitingQueue(
 		workqueue.NewItemExponentialFailureRateLimiter(*retryIntervalStart, *retryIntervalMax),
+		"ddp-pvc-q",
 	)
 
+	// create a new instance of storage controller
+	ctrl := &storage.Controller{
+		Name:               controllerName,
+		InformerFactory:    factory,
+		DDPInformerFactory: ddpFactory,
+		StorageQueue:       storageQ,
+		PVCQueue:           pvcQ,
+	}
+
+	// initialize the controller before running
+	err = ctrl.Init()
+	if err != nil {
+		klog.Error(err.Error())
+		os.Exit(1)
+	}
+
+	// define the run func
 	run := func(ctx context.Context) {
+		// create a stop channel & pass this wherever needed
 		stopCh := ctx.Done()
 		factory.Start(stopCh)
+		ddpFactory.Start(stopCh)
+
+		// run the storage controller
 		ctrl.Run(int(*workerThreads), stopCh)
 	}
 
@@ -176,7 +179,7 @@ func main() {
 		run(context.TODO())
 	} else {
 		// Name of config map with leader election lock
-		lockName := "external-attacher-leader-" + csiAttacher
+		lockName := controllerName + "-leader"
 		le := leaderelection.NewLeaderElection(clientset, lockName, run)
 
 		if *leaderElectionNamespace != "" {
@@ -194,24 +197,4 @@ func buildConfig(kubeconfig string) (*rest.Config, error) {
 		return clientcmd.BuildConfigFromFlags("", kubeconfig)
 	}
 	return rest.InClusterConfig()
-}
-
-func supportsControllerPublish(ctx context.Context, csiConn *grpc.ClientConn) (supportsControllerPublish bool, supportsPublishReadOnly bool, err error) {
-	caps, err := rpc.GetControllerCapabilities(ctx, csiConn)
-	if err != nil {
-		return false, false, err
-	}
-
-	supportsControllerPublish = caps[csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME]
-	supportsPublishReadOnly = caps[csi.ControllerServiceCapability_RPC_PUBLISH_READONLY]
-	return supportsControllerPublish, supportsPublishReadOnly, nil
-}
-
-func supportsPluginControllerService(ctx context.Context, csiConn *grpc.ClientConn) (bool, error) {
-	caps, err := rpc.GetPluginCapabilities(ctx, csiConn)
-	if err != nil {
-		return false, err
-	}
-
-	return caps[csi.PluginCapability_Service_CONTROLLER_SERVICE], nil
 }
