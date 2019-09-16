@@ -19,22 +19,15 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-PROJECT_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
-CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${PROJECT_ROOT}"; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
-
-# Need to download till we move to go modules where this
-# non go file should automatically get downloaded
-wget https://raw.githubusercontent.com/kubernetes/kubernetes/master/staging/src/k8s.io/code-generator/generate-groups.sh
-mv generate-groups.sh "${CODEGEN_PKG}"/generate-groups.sh
+SCRIPT_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
+CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
 
 # generate the code with:
 # --output-base    because this script should also be able to run inside the vendor dir of
-#                  k8s.io/kubernetes. The output-base is needed for the generators to output
-#                  into the vendor dir instead of the $GOPATH directly. For normal projects 
-#                  this can be dropped.
-bash "${CODEGEN_PKG}"/generate-groups.sh \
-  "deepcopy,client,informer,lister" \
-  github.com/AmitKumarDas/storage-provisioner/client/generated \
+#                  k8s.io/kubernetes. The output-base is needed for the generators to output into the vendor dir
+#                  instead of the $GOPATH directly. For normal projects this can be dropped.
+bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client,informer,lister" \
+  github.com/AmitKumarDas/storage-provisioner/pkg/client/generated \
   github.com/AmitKumarDas/storage-provisioner/pkg/apis \
   ddp:v1alpha1 \
-  --go-header-file "${PROJECT_ROOT}"/hack/custom-boilerplate.go.txt
+  --go-header-file "${SCRIPT_ROOT}"/hack/custom-boilerplate.go.txt
