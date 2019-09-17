@@ -30,8 +30,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	ddp "github.com/AmitKumarDas/storage-provisioner/pkg/apis/ddp/v1alpha1"
-	ddpinformers "github.com/AmitKumarDas/storage-provisioner/pkg/client/generated/informers/externalversions"
-	ddplisters "github.com/AmitKumarDas/storage-provisioner/pkg/client/generated/listers/ddp/v1alpha1"
+	ddpinformers "github.com/AmitKumarDas/storage-provisioner/client/generated/informer/externalversions"
+	ddplisters "github.com/AmitKumarDas/storage-provisioner/client/generated/lister/ddp/v1alpha1"
 	"github.com/pkg/errors"
 )
 

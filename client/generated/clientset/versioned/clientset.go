@@ -21,7 +21,7 @@ package versioned
 import (
 	"fmt"
 
-	ddpv1alpha1 "github.com/AmitKumarDas/storage-provisioner/pkg/client/generated/clientset/versioned/typed/ddp/v1alpha1"
+	ddpv1alpha1 "github.com/AmitKumarDas/storage-provisioner/client/generated/clientset/versioned/typed/ddp/v1alpha1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
