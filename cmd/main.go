@@ -146,13 +146,20 @@ func main() {
 		"ddp-pvc-q",
 	)
 
-	// create a new instance of storage controller
+	// new instance of storage reconciler
+	storageReconciler := &storage.Reconciler{
+		Clientset: clientset,
+		PVCLister: factory.Core().V1().PersistentVolumeClaims().Lister(),
+	}
+
+	// new instance of storage controller
 	ctrl := &storage.Controller{
-		Name:               controllerName,
-		InformerFactory:    factory,
-		DDPInformerFactory: ddpFactory,
-		StorageQueue:       storageQ,
-		PVCQueue:           pvcQ,
+		Name:                controllerName,
+		InformerFactory:     factory,
+		DDPInformerFactory:  ddpFactory,
+		StorageQueue:        storageQ,
+		PVCQueue:            pvcQ,
+		StorageReconcilerFn: storageReconciler.Reconcile,
 	}
 
 	// initialize the controller before running

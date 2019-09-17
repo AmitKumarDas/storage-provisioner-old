@@ -29,9 +29,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	ddp "github.com/AmitKumarDas/storage-provisioner/pkg/apis/ddp/v1alpha1"
 	ddpinformers "github.com/AmitKumarDas/storage-provisioner/client/generated/informer/externalversions"
 	ddplisters "github.com/AmitKumarDas/storage-provisioner/client/generated/lister/ddp/v1alpha1"
+	ddp "github.com/AmitKumarDas/storage-provisioner/pkg/apis/ddp/v1alpha1"
 	"github.com/pkg/errors"
 )
 
@@ -62,9 +62,9 @@ func pvcQueueKey(p *v1.PersistentVolumeClaim) string {
 	return p.Namespace + ":" + p.Name
 }
 
-// isStorageOwnerOfPVC returns true if the given PVC instance is owned
-// by any storage
-func isStorageOwnerOfPVC(pvc *v1.PersistentVolumeClaim) bool {
+// isStorageKindOwnerOfPVC returns true if the given PVC instance
+// is owned by any storage
+func isStorageKindOwnerOfPVC(pvc *v1.PersistentVolumeClaim) bool {
 	owners := pvc.GetOwnerReferences()
 	for _, o := range owners {
 		if o.APIVersion == ddp.GroupName+"/"+ddp.Version {
@@ -197,7 +197,7 @@ func (ctrl *Controller) storageUpdated(old, new interface{}) {
 func (ctrl *Controller) pvcAdded(obj interface{}) {
 	pvc := obj.(*v1.PersistentVolumeClaim)
 
-	if !isStorageOwnerOfPVC(pvc) {
+	if !isStorageKindOwnerOfPVC(pvc) {
 		// this PVC does not belong to storage API
 		return
 	}
@@ -208,7 +208,7 @@ func (ctrl *Controller) pvcAdded(obj interface{}) {
 func (ctrl *Controller) pvcUpdated(old, new interface{}) {
 	pvc := new.(*v1.PersistentVolumeClaim)
 
-	if !isStorageOwnerOfPVC(pvc) {
+	if !isStorageKindOwnerOfPVC(pvc) {
 		// this PVC does not belong to storage API
 		return
 	}
@@ -296,7 +296,7 @@ func (ctrl *Controller) syncPVC() {
 	klog.V(4).Infof("%s: Sync started: PVC %q", ctrl, pvcName)
 	ns, name := parseQueueKey(pvcName)
 
-	// get PV to process
+	// get PVC to process
 	pvc, err := ctrl.pvcLister.PersistentVolumeClaims(ns).Get(name)
 	if err != nil {
 		return
