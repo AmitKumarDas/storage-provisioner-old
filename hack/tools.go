@@ -20,3 +20,4 @@ limitations under the License.
 package tools
 
 import _ "k8s.io/code-generator"
+import _ "k8s.io/client-go/discovery/fake"

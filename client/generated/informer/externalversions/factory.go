@@ -23,9 +23,9 @@ import (
 	sync "sync"
 	time "time"
 
-	versioned "github.com/AmitKumarDas/storage-provisioner/pkg/client/generated/clientset/versioned"
-	ddp "github.com/AmitKumarDas/storage-provisioner/pkg/client/generated/informers/externalversions/ddp"
-	internalinterfaces "github.com/AmitKumarDas/storage-provisioner/pkg/client/generated/informers/externalversions/internalinterfaces"
+	versioned "github.com/AmitKumarDas/storage-provisioner/client/generated/clientset/versioned"
+	ddp "github.com/AmitKumarDas/storage-provisioner/client/generated/informer/externalversions/ddp"
+	internalinterfaces "github.com/AmitKumarDas/storage-provisioner/client/generated/informer/externalversions/internalinterfaces"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

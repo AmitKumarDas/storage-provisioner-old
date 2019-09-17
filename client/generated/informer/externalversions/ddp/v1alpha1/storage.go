@@ -21,10 +21,10 @@ package v1alpha1
 import (
 	time "time"
 
+	versioned "github.com/AmitKumarDas/storage-provisioner/client/generated/clientset/versioned"
+	internalinterfaces "github.com/AmitKumarDas/storage-provisioner/client/generated/informer/externalversions/internalinterfaces"
+	v1alpha1 "github.com/AmitKumarDas/storage-provisioner/client/generated/lister/ddp/v1alpha1"
 	ddpv1alpha1 "github.com/AmitKumarDas/storage-provisioner/pkg/apis/ddp/v1alpha1"
-	versioned "github.com/AmitKumarDas/storage-provisioner/pkg/client/generated/clientset/versioned"
-	internalinterfaces "github.com/AmitKumarDas/storage-provisioner/pkg/client/generated/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/AmitKumarDas/storage-provisioner/pkg/client/generated/listers/ddp/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"

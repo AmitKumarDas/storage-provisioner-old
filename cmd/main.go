@@ -1,5 +1,6 @@
 /*
 Copyright 2017 The Kubernetes Authors.
+Copyright 2019 The MayaData Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -30,9 +31,10 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 
-	ddpkubernetes "github.com/AmitKumarDas/storage-provisioner/pkg/client/generated/clientset/versioned"
-	ddpinformers "github.com/AmitKumarDas/storage-provisioner/pkg/client/generated/informers/externalversions"
-	"github.com/AmitKumarDas/storage-provisioner/pkg/storage"
+	"github.com/AmitKumarDas/storage-provisioner/build"
+	ddpkubernetes "github.com/AmitKumarDas/storage-provisioner/client/generated/clientset/versioned"
+	ddpinformers "github.com/AmitKumarDas/storage-provisioner/client/generated/informer/externalversions"
+	"github.com/AmitKumarDas/storage-provisioner/storage"
 	"github.com/kubernetes-csi/csi-lib-utils/leaderelection"
 )
 
@@ -91,10 +93,6 @@ var (
 	)
 )
 
-var (
-	version = "unknown"
-)
-
 type leaderElection interface {
 	Run() error
 	WithNamespace(namespace string)
@@ -106,10 +104,10 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Println(os.Args[0], version)
+		fmt.Println(os.Args[0], build.Hash)
 		return
 	}
-	klog.Infof("Version: %s", version)
+	klog.Infof("Version: %s", build.Hash)
 
 	// Create the kubernetes client config.
 	// Use kubeconfig if given, otherwise assume in-cluster.
@@ -168,6 +166,7 @@ func main() {
 	run := func(ctx context.Context) {
 		// create a stop channel & pass this wherever needed
 		stopCh := ctx.Done()
+
 		factory.Start(stopCh)
 		ddpFactory.Start(stopCh)
 
@@ -187,7 +186,7 @@ func main() {
 		}
 
 		if err := le.Run(); err != nil {
-			klog.Fatalf("failed to initialize leader election: %v", err)
+			klog.Fatalf("Leader election failed: %v", err)
 		}
 	}
 }
