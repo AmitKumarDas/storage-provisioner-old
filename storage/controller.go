@@ -62,18 +62,6 @@ func pvcQueueKey(p *v1.PersistentVolumeClaim) string {
 	return p.Namespace + ":" + p.Name
 }
 
-// isStorageKindOwnerOfPVC returns true if the given PVC instance
-// is owned by any storage
-func isStorageKindOwnerOfPVC(pvc *v1.PersistentVolumeClaim) bool {
-	owners := pvc.GetOwnerReferences()
-	for _, o := range owners {
-		if o.APIVersion == ddp.GroupName+"/"+ddp.Version {
-			return true
-		}
-	}
-	return false
-}
-
 // Controller to add / remove storage
 type Controller struct {
 	// Name of this controller
@@ -177,8 +165,8 @@ func (ctrl *Controller) Run(workers int, stopCh <-chan struct{}) {
 
 // storageAdded reacts to a storage creation
 func (ctrl *Controller) storageAdded(obj interface{}) {
-	s := obj.(*ddp.Storage)
-	ctrl.StorageQueue.Add(storageQueueKey(s))
+	stor := obj.(*ddp.Storage)
+	ctrl.StorageQueue.Add(storageQueueKey(stor))
 }
 
 // storageAdded reacts to a storage update
@@ -206,13 +194,13 @@ func (ctrl *Controller) pvcAdded(obj interface{}) {
 
 // pvcUpdated reacts to a PVC update
 func (ctrl *Controller) pvcUpdated(old, new interface{}) {
-	pvc := new.(*v1.PersistentVolumeClaim)
+	newpvc := new.(*v1.PersistentVolumeClaim)
 
-	if !isStorageKindOwnerOfPVC(pvc) {
+	if !isStorageKindOwnerOfPVC(newpvc) {
 		// this PVC does not belong to storage API
 		return
 	}
-	ctrl.PVCQueue.Add(pvcQueueKey(pvc))
+	ctrl.PVCQueue.Add(pvcQueueKey(newpvc))
 }
 
 // syncStorage starts reconciliation of storage as per the needs of
@@ -286,7 +274,7 @@ func (ctrl *Controller) syncPVC() {
 				return
 			}
 			klog.Errorf(
-				"%s: Sync failed: Will re-queue PV %q: %v", ctrl, pvcName, err,
+				"%s: Sync failed: Will re-queue PVC %q: %v", ctrl, pvcName, err,
 			)
 			ctrl.PVCQueue.AddRateLimited(key)
 		}
