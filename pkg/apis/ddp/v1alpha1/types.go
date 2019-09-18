@@ -33,7 +33,13 @@ type Storage struct {
 }
 
 type StorageSpec struct {
+	// Capacity of the storage
 	Capacity resource.Quantity `json:"capacity"`
+
+	// Name of the node that should attach the storage
+	//
+	// This is optional
+	NodeName *string `json:"nodeName,omitempty"`
 }
 
 // StoragePhase is a label for the condition of a storage at

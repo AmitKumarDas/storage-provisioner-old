@@ -17,6 +17,8 @@ limitations under the License.
 package storage
 
 import (
+	"fmt"
+
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -24,38 +26,10 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
+	"k8s.io/klog"
 
 	ddp "github.com/AmitKumarDas/storage-provisioner/pkg/apis/ddp/v1alpha1"
 )
-
-const (
-	storageProviderKey string = "storageprovider.ddp.mayadata.io/storageclass-name"
-)
-
-func ptrTrue() *bool {
-	t := true
-	return &t
-}
-
-func findProvider(dict map[string]string) (string, bool) {
-	if len(dict) == 0 {
-		return "", false
-	}
-	provider, found := dict[storageProviderKey]
-	return provider, found
-}
-
-func isStorageOwner(owners []metav1.OwnerReference, storage *ddp.Storage) bool {
-	for _, o := range owners {
-		if o.APIVersion != storage.APIVersion &&
-			o.Kind != storage.Kind &&
-			o.Name != storage.Name &&
-			o.UID != storage.UID {
-			return true
-		}
-	}
-	return false
-}
 
 // Reconciler manages reconciling storage API
 // in kubernetes cluster
@@ -64,12 +38,26 @@ type Reconciler struct {
 	Clientset kubernetes.Interface
 	PVCLister corelisters.PersistentVolumeClaimLister
 
+	// storage that will get reconciled
+	storage *ddp.Storage
+
 	// name of the storage provider
-	provider string
+	providerName string
+
+	// name of the storage attacher
+	attacherName string
+
+	// name of the node where the storage gets attached to
+	nodeName string
 }
 
 func (r *Reconciler) String() string {
-	return "StorageReconciler"
+	if r.storage == nil {
+		return "StorageReconciler"
+	}
+	return fmt.Sprintf(
+		"StorageReconciler %s/%s", r.storage.Namespace, r.storage.Name,
+	)
 }
 
 // Reconcile accepts storage as the desired state and starts executing
@@ -78,39 +66,53 @@ func (r *Reconciler) String() string {
 // NOTE:
 //	Reconcile logic needs to be idempotent
 func (r *Reconciler) Reconcile(stor *ddp.Storage) error {
+	r.storage = stor
+
 	var found bool
-	if r.provider, found = findProvider(stor.GetAnnotations()); !found {
+	if r.providerName, found = findProviderFromStorage(stor); !found {
 		return errors.Errorf(
-			"%s %s/%s: Reconcile failed: Missing storage provider",
-			r, stor.Namespace, stor.Name,
+			"%s: Reconcile failed: Missing provider annotation %s",
+			r, storageclassProviderKey,
+		)
+	}
+
+	if r.attacherName, found = findAttacherFromStorage(stor); !found {
+		return errors.Errorf(
+			"%s: Reconcile failed: Missing attacher annotation %s",
+			r, storageAttacherKey,
 		)
 	}
 
 	// find if PVC is created in previous reconcile attempt
-	pvc, err := r.findPVC(stor)
+	pvc, err := r.findPVC()
 	if err != nil {
 		return err
 	}
 
 	// create PVC if not found
 	if pvc == nil {
-		return r.createPVC(stor)
+		return r.createPVC()
 	}
 
 	// update PVC if desired state was changed
-	return r.updatePVC(pvc, stor)
+	update, err := r.updatePVC(pvc)
+	if !update {
+		klog.V(3).Infof("%s: No change to desired state", r)
+	}
+	return err
 }
 
 // findPVC will list & find the correct PVC if available
-func (r *Reconciler) findPVC(stor *ddp.Storage) (*v1.PersistentVolumeClaim, error) {
+func (r *Reconciler) findPVC() (*v1.PersistentVolumeClaim, error) {
+	// PVC & storage must have same namespace
 	list, err :=
-		r.PVCLister.PersistentVolumeClaims(stor.Namespace).List(labels.Everything())
+		r.PVCLister.PersistentVolumeClaims(r.storage.Namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
 
 	for _, pvc := range list {
-		isowner := isStorageOwner(pvc.OwnerReferences, stor)
+		isowner := isStorageOwner(pvc.OwnerReferences, r.storage)
 		if isowner {
 			return pvc, nil
 		}
@@ -118,49 +120,78 @@ func (r *Reconciler) findPVC(stor *ddp.Storage) (*v1.PersistentVolumeClaim, erro
 	return nil, nil
 }
 
-func (r *Reconciler) updatePVC(pvc *v1.PersistentVolumeClaim, stor *ddp.Storage) error {
-	if pvc.Spec.Resources.Requests[v1.ResourceStorage] == stor.Spec.Capacity {
+// updatePVC updates the PVC if there are any changes to desired state
+func (r *Reconciler) updatePVC(pvc *v1.PersistentVolumeClaim) (bool, error) {
+	if pvc.Spec.Resources.Requests[v1.ResourceStorage] == r.storage.Spec.Capacity {
 		// no changes
-		return nil
+		return false, nil
 	}
 
 	copy := pvc.DeepCopy()
-	copy.Spec.Resources.Requests[v1.ResourceStorage] = stor.Spec.Capacity
+	copy.Spec.Resources.Requests[v1.ResourceStorage] = r.storage.Spec.Capacity
+
+	// PVC & storage must have same namespace
 	_, err :=
-		r.Clientset.CoreV1().PersistentVolumeClaims(stor.Namespace).Update(copy)
+		r.Clientset.CoreV1().PersistentVolumeClaims(r.storage.Namespace).Update(copy)
+	return true, err
+}
+
+func (r *Reconciler) createPVC() error {
+	r.nodeName = r.getNodeName()
+
+	// build a new instance of PVC object
+	pvc := r.newPVC()
+
+	// PVC & storage must have same namespace
+	_, err :=
+		r.Clientset.CoreV1().PersistentVolumeClaims(r.storage.Namespace).Create(pvc)
 	return err
 }
 
-func (r *Reconciler) createPVC(stor *ddp.Storage) error {
-	pvc := r.buildPVCFromStorage(stor)
-	_, err :=
-		r.Clientset.CoreV1().PersistentVolumeClaims(stor.Namespace).Create(pvc)
-	return err
+// getNodeName returns the node name that will be used to attach
+// the storage
+//
+// TODO (@amitkumardas):
+// 		Validate if this nodeName is allowed in storageclass (provider)
+// allowed topologies
+func (r *Reconciler) getNodeName() string {
+	if r.storage.Spec.NodeName != nil {
+		return *r.storage.Spec.NodeName
+	}
+	return ""
 }
 
-func (r *Reconciler) buildPVCFromStorage(stor *ddp.Storage) *v1.PersistentVolumeClaim {
+// newPVC returns a new instance of PVC API.
+//
+// NOTE:
+//	This should be used only for PVC create case
+func (r *Reconciler) newPVC() *v1.PersistentVolumeClaim {
 	return &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: stor.Name,
-			Namespace:    stor.Namespace,
+			GenerateName: r.storage.Name,
+			Namespace:    r.storage.Namespace,
+			Annotations: map[string]string{
+				nodeNameKey:        r.nodeName,
+				storageAttacherKey: r.attacherName,
+			},
 			OwnerReferences: []metav1.OwnerReference{
 				metav1.OwnerReference{
-					APIVersion:         stor.APIVersion,
-					Kind:               stor.Kind,
-					Name:               stor.Name,
-					UID:                stor.UID,
-					Controller:         ptrTrue(),
-					BlockOwnerDeletion: ptrTrue(),
+					APIVersion:         r.storage.APIVersion,
+					Kind:               r.storage.Kind,
+					Name:               r.storage.Name,
+					UID:                r.storage.UID,
+					Controller:         boolPtr(true),
+					BlockOwnerDeletion: boolPtr(true),
 				},
 			},
 		},
 		Spec: v1.PersistentVolumeClaimSpec{
 			Resources: v1.ResourceRequirements{
 				Requests: map[v1.ResourceName]resource.Quantity{
-					v1.ResourceStorage: stor.Spec.Capacity,
+					v1.ResourceStorage: r.storage.Spec.Capacity,
 				},
 			},
-			StorageClassName: &r.provider,
+			StorageClassName: strPtr(r.providerName),
 		},
 	}
 }

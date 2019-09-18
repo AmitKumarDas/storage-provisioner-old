@@ -1,1 +1,22 @@
 
+--- NOTES ----
+
+Spec == What you want == Desire == Can change
+Annotations == How to get to your desired state == Rarely change
+Label == Mark == Category == A combination != Not a placeholder of Values == Never change
+
+--- Immediate Actions
+- Reconcile should return (bool, error) where bool indicates a re-queue
+- Dockerfile should be able to build the binary in addition to creating the image
+
+--- Next Actions
+- Errors should result into Events
+
+- Main controller should have a registry of reconcilers; where each reconciler is
+ responsible for a single reconciliation. There can be multiple reconcilers based on
+ same apiVersion & kind.
+
+- Replace Storage API with BDC API
+- Need to think about how to include BDC API into this project
+
+- Make use of Metac

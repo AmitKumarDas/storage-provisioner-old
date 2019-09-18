@@ -107,6 +107,11 @@ func (in *StorageList) DeepCopyObject() runtime.Object {
 func (in *StorageSpec) DeepCopyInto(out *StorageSpec) {
 	*out = *in
 	out.Capacity = in.Capacity.DeepCopy()
+	if in.NodeName != nil {
+		in, out := &in.NodeName, &out.NodeName
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 
