@@ -1,12 +1,10 @@
-TAG = dev
-
 PROJECT_ROOT := github.com/AmitKumarDas/storage-provisioner
 PKG          := $(PROJECT_ROOT)/pkg
 API_GROUPS   := ddp/v1alpha1
 
 PACKAGE_VERSION ?= $(shell git describe --always --tags)
 REGISTRY ?= quay.io/amitkumardas
-IMG_NAME ?= d-provisioner
+IMG_NAME ?= d-storprovisioner
 
 BUILD_LDFLAGS = -X $(PROJECT_ROOT)/build.Hash=$(PACKAGE_VERSION)
 GO_FLAGS = -gcflags '-N -l' -ldflags "$(BUILD_LDFLAGS)"
@@ -30,20 +28,20 @@ integration-test:
 	PATH="$(PWD)/hack/bin:$(PATH)" go test ./test/integration/... -v -timeout 5m -args -v=6
 
 .PHONY: image
-image: build
+image:
 	@echo "Making image ..."
-	docker build -t $(REGISTRY)/$(IMG_NAME):$(TAG) .
+	docker build -t $(REGISTRY)/$(IMG_NAME):$(PACKAGE_VERSION) .
 
 .PHONY: push
 push: image
 	@echo "Pushing image ..."
-	@docker push $(REGISTRY)/$(IMG_NAME):$(TAG)
+	@docker push $(REGISTRY)/$(IMG_NAME):$(PACKAGE_VERSION)
 
 .PHONY: vendor
 vendor: go.mod go.sum
 	@echo "Vendor update ..."
-	@export GO111MODULE=on go mod download
-	@export GO111MODULE=on go mod vendor
+	@GO111MODULE=on go mod download
+	@GO111MODULE=on go mod vendor
 
 # I prefer using makefile targets instead of ./hack/update-codegen.sh
 # since makefile based targets are more manageable than script based 
@@ -61,7 +59,7 @@ generated_files: vendor deepcopy clientset lister informer
 # Finally this installed binary is used to generate deepcopy
 .PHONY: deepcopy
 deepcopy:
-	@go install ./vendor/k8s.io/code-generator/cmd/deepcopy-gen
+	@GO111MODULE=on go install k8s.io/code-generator/cmd/deepcopy-gen
 	@echo "+ Generating deepcopy funcs for $(API_GROUPS)"
 	@deepcopy-gen \
 		--input-dirs $(PKG)/apis/$(API_GROUPS) \
@@ -75,7 +73,7 @@ deepcopy:
 # Finally this installed binary is used to generate clienset
 .PHONY: clientset
 clientset:
-	@go install ./vendor/k8s.io/code-generator/cmd/client-gen
+	@GO111MODULE=on go install k8s.io/code-generator/cmd/client-gen
 	@echo "+ Generating clientset for $(API_GROUPS)"
 	@client-gen \
 		--fake-clientset=false \
@@ -92,7 +90,7 @@ clientset:
 # Finally this installed binary is used to generate lister
 .PHONY: lister
 lister:
-	@go install ./vendor/k8s.io/code-generator/cmd/lister-gen
+	@GO111MODULE=on go install k8s.io/code-generator/cmd/lister-gen
 	@echo "+ Generating lister for $(API_GROUPS)"
 	@lister-gen \
 		--input-dirs $(PKG)/apis/$(API_GROUPS) \
@@ -106,7 +104,7 @@ lister:
 # Finally this installed binary is used to generate informer
 .PHONY: informer
 informer:
-	@go install ./vendor/k8s.io/code-generator/cmd/informer-gen
+	@GO111MODULE=on go install k8s.io/code-generator/cmd/informer-gen
 	@echo "+ Generating informer for $(API_GROUPS)"
 	@informer-gen \
 		--input-dirs $(PKG)/apis/$(API_GROUPS) \

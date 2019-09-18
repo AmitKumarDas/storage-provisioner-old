@@ -1,65 +1,33 @@
-# This YAML file demonstrates how to deploy the external
-# provisioner for use with the mock CSI driver. It
+# This YAML file demonstrates how to deploy the stotage
+# provisioner for use with the Google PD CSI driver. It
 # depends on the RBAC definitions from rbac.yaml.
 
-kind: Service
 apiVersion: v1
+kind: Namespace
 metadata:
-  name: csi-attacher
-  labels:
-    app: csi-attacher
-spec:
-  selector:
-    app: csi-attacher
-  ports:
-    - name: dummy
-      port: 12345
+  name: ddp
 
 ---
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: csi-attacher
+  name: ddp-storage-provisioner
+  namespace: ddp
+  labels:
+    ddp-project-name: storage-provisioner
 spec:
   replicas: 1
-  selector:
-    matchLabels:
-      external-attacher: mock-driver
   template:
-    metadata:
-      labels:
-        external-attacher: mock-driver
     spec:
-      serviceAccount: csi-attacher
+      serviceAccount: ddp-service-account
       containers:
-        - name: csi-attacher
-          image: quay.io/k8scsi/csi-attacher:canary
+        - name: ddp-storage-provisioner
+          image: quay.io/amitkumardas/storage-provisioner:latest
           args:
             - "--v=5"
-            - "--csi-address=$(ADDRESS)"
-            - "--leader-election"
           env:
             - name: MY_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: ADDRESS
-              value: /var/lib/csi/sockets/pluginproxy/mock.socket
-          imagePullPolicy: "IfNotPresent"
-          volumeMounts:
-            - name: socket-dir
-              mountPath: /var/lib/csi/sockets/pluginproxy/
-
-        - name: mock-driver
-          image: quay.io/k8scsi/mock-driver:canary
-          imagePullPolicy: "IfNotPresent"
-          env:
-            - name: CSI_ENDPOINT
-              value: /var/lib/csi/sockets/pluginproxy/mock.socket
-          volumeMounts:
-            - name: socket-dir
-              mountPath: /var/lib/csi/sockets/pluginproxy/
-
-      volumes:
-        - name: socket-dir
-          emptyDir:
+          imagePullPolicy: "Always"
