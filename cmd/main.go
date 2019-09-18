@@ -152,6 +152,12 @@ func main() {
 		PVCLister: factory.Core().V1().PersistentVolumeClaims().Lister(),
 	}
 
+	// new instance of storage reconciler
+	pvcReconciler := &storage.PVCReconciler{
+		Clientset: clientset,
+		VALister:  factory.Storage().V1beta1().VolumeAttachments().Lister(),
+	}
+
 	// new instance of storage controller
 	ctrl := &storage.Controller{
 		Name:                controllerName,
@@ -160,6 +166,7 @@ func main() {
 		StorageQueue:        storageQ,
 		PVCQueue:            pvcQ,
 		StorageReconcilerFn: storageReconciler.Reconcile,
+		PVCReconcilerFn:     pvcReconciler.Reconcile,
 	}
 
 	// initialize the controller before running
