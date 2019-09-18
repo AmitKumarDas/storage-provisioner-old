@@ -1,2 +1,4 @@
 vendor/
 hack/bin/
+client/generated/
+d-storprovisioner
