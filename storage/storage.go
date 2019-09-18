@@ -25,7 +25,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	corelisters "k8s.io/client-go/listers/core/v1"
+	ref "k8s.io/client-go/tools/reference"
 	"k8s.io/klog"
 
 	ddp "github.com/AmitKumarDas/storage-provisioner/pkg/apis/ddp/v1alpha1"
@@ -140,10 +142,13 @@ func (r *Reconciler) createPVC() error {
 	r.nodeName = r.getNodeName()
 
 	// build a new instance of PVC object
-	pvc := r.newPVC()
+	pvc, err := r.newPVC()
+	if err != nil {
+		return err
+	}
 
 	// PVC & storage must have same namespace
-	_, err :=
+	_, err =
 		r.Clientset.CoreV1().PersistentVolumeClaims(r.storage.Namespace).Create(pvc)
 	return err
 }
@@ -165,21 +170,26 @@ func (r *Reconciler) getNodeName() string {
 //
 // NOTE:
 //	This should be used only for PVC create case
-func (r *Reconciler) newPVC() *v1.PersistentVolumeClaim {
+func (r *Reconciler) newPVC() (*v1.PersistentVolumeClaim, error) {
+	storref, err := ref.GetReference(scheme.Scheme, r.storage)
+	if err != nil {
+		return nil, err
+	}
+
 	return &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: r.storage.Name,
-			Namespace:    r.storage.Namespace,
+			GenerateName: storref.Name,
+			Namespace:    storref.Namespace,
 			Annotations: map[string]string{
 				nodeNameKey:        r.nodeName,
 				storageAttacherKey: r.attacherName,
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				metav1.OwnerReference{
-					APIVersion:         r.storage.APIVersion,
-					Kind:               r.storage.Kind,
-					Name:               r.storage.Name,
-					UID:                r.storage.UID,
+					APIVersion:         storref.APIVersion,
+					Kind:               storref.Kind,
+					Name:               storref.Name,
+					UID:                storref.UID,
 					Controller:         boolPtr(true),
 					BlockOwnerDeletion: boolPtr(true),
 				},
@@ -192,6 +202,9 @@ func (r *Reconciler) newPVC() *v1.PersistentVolumeClaim {
 				},
 			},
 			StorageClassName: strPtr(r.providerName),
+			AccessModes: []v1.PersistentVolumeAccessMode{
+				v1.ReadWriteOnce,
+			},
 		},
-	}
+	}, nil
 }

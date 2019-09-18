@@ -85,33 +85,38 @@ type Controller struct {
 	pvcListerSynced     cache.InformerSynced
 }
 
+// String implements Stringer interface
+func (ctrl *Controller) String() string {
+	return ctrl.Name
+}
+
 // Init initializes the storage controller with required properties
 //
 // NOTE:
 //	Init must be invoked by caller before invoking any other
 // methods of this instance
 func (ctrl *Controller) Init() error {
-
-	if ctrl.InformerFactory == nil {
-		return errors.Errorf("Init failed: Nil informer factory")
-	}
-	if ctrl.DDPInformerFactory == nil {
-		return errors.Errorf("Init failed: Nil ddp informer factory")
-	}
-	if ctrl.StorageReconcilerFn == nil {
-		return errors.Errorf("Init failed: Nil storage reconciler")
-	}
-	if ctrl.PVCReconcilerFn == nil {
-		return errors.Errorf("Init failed: Nil pvc reconciler")
-	}
-	if ctrl.StorageQueue == nil {
-		return errors.Errorf("Init failed: Nil storage queue")
-	}
-	if ctrl.PVCQueue == nil {
-		return errors.Errorf("Init failed: Nil pvc queue")
-	}
 	if ctrl.Name == "" {
 		ctrl.Name = defaultCtrlName
+	}
+
+	if ctrl.InformerFactory == nil {
+		return errors.Errorf("%s: Init failed: Nil informer factory", ctrl)
+	}
+	if ctrl.DDPInformerFactory == nil {
+		return errors.Errorf("%s: Init failed: Nil ddp informer factory", ctrl)
+	}
+	if ctrl.StorageReconcilerFn == nil {
+		return errors.Errorf("%s: Init failed: Nil storage reconciler", ctrl)
+	}
+	if ctrl.PVCReconcilerFn == nil {
+		return errors.Errorf("%s: Init failed: Nil pvc reconciler", ctrl)
+	}
+	if ctrl.StorageQueue == nil {
+		return errors.Errorf("%s: Init failed: Nil storage queue", ctrl)
+	}
+	if ctrl.PVCQueue == nil {
+		return errors.Errorf("%s: Init failed: Nil pvc queue", ctrl)
 	}
 
 	storageInformer := ctrl.DDPInformerFactory.Ddp().V1alpha1().Storages()
@@ -132,11 +137,6 @@ func (ctrl *Controller) Init() error {
 	ctrl.pvcListerSynced = pvcInformer.Informer().HasSynced
 
 	return nil
-}
-
-// String implements Stringer interface
-func (ctrl *Controller) String() string {
-	return ctrl.Name
 }
 
 // Run starts provisioner and listens on channel events
