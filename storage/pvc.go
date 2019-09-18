@@ -25,7 +25,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	storagelisters "k8s.io/client-go/listers/storage/v1beta1"
+	ref "k8s.io/client-go/tools/reference"
 	"k8s.io/klog"
 )
 
@@ -143,23 +145,32 @@ func (r *PVCReconciler) createVA() error {
 		)
 	}
 
-	va := r.newVA()
-	_, err :=
+	va, err := r.newVA()
+	if err != nil {
+		return err
+	}
+
+	_, err =
 		r.Clientset.StorageV1beta1().VolumeAttachments().Create(va)
 	return err
 }
 
-func (r *PVCReconciler) newVA() *storage.VolumeAttachment {
+func (r *PVCReconciler) newVA() (*storage.VolumeAttachment, error) {
+	pvcref, err := ref.GetReference(scheme.Scheme, r.pvc)
+	if err != nil {
+		return nil, err
+	}
+
 	return &storage.VolumeAttachment{
 		ObjectMeta: metav1.ObjectMeta{
 			// pvc name is supposed to be generated in this case
-			Name: r.pvc.Name,
+			Name: pvcref.Name,
 			OwnerReferences: []metav1.OwnerReference{
 				metav1.OwnerReference{
-					APIVersion:         r.pvc.APIVersion,
-					Kind:               r.pvc.Kind,
-					Name:               r.pvc.Name,
-					UID:                r.pvc.UID,
+					APIVersion:         pvcref.APIVersion,
+					Kind:               pvcref.Kind,
+					Name:               pvcref.Name,
+					UID:                pvcref.UID,
 					Controller:         boolPtr(true),
 					BlockOwnerDeletion: boolPtr(true),
 				},
@@ -172,5 +183,5 @@ func (r *PVCReconciler) newVA() *storage.VolumeAttachment {
 			NodeName: r.nodeName,
 			Attacher: r.attacherName,
 		},
-	}
+	}, nil
 }
