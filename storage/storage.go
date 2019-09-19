@@ -138,7 +138,7 @@ func (r *Reconciler) findPVC() (*v1.PersistentVolumeClaim, error) {
 	}
 
 	for _, pvc := range list {
-		isowner := isStorageOwner(pvc.OwnerReferences, r.storageRef)
+		isowner := isObjectReferenceAnOwner(pvc.OwnerReferences, r.storageRef)
 		if isowner {
 			return pvc, nil
 		}
@@ -211,7 +211,7 @@ func (r *Reconciler) newPVC() *v1.PersistentVolumeClaim {
 
 	return &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: r.storageRef.Name,
+			GenerateName: r.storageRef.Namespace + "-" + r.storageRef.Name + "-",
 			Namespace:    r.storageRef.Namespace,
 			Annotations: map[string]string{
 				nodeNameKey:           r.nodeName,

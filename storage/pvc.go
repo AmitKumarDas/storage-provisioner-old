@@ -22,8 +22,8 @@ import (
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	storage "k8s.io/api/storage/v1beta1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	storagelisters "k8s.io/client-go/listers/storage/v1beta1"
@@ -116,18 +116,14 @@ func (r *PVCReconciler) findVA() (*storage.VolumeAttachment, error) {
 		}
 	}()
 
-	list, err := r.VALister.List(labels.Everything())
-	if err != nil {
+	// VolumeAttachment & PVC Name are same in case in this provisioner
+	va, err := r.VALister.Get(r.pvc.Name)
+	if err != nil && !apierrs.IsNotFound(err) {
+		// do not ignore error other than notfound error
 		return nil, err
 	}
 
-	for _, va := range list {
-		isowner := isPVCOwner(va.OwnerReferences, r.pvcRef)
-		if isowner {
-			return va, nil
-		}
-	}
-	return nil, nil
+	return va, nil
 }
 
 // updateVA updates the given VolumeAttachment in case of any change
