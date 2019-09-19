@@ -60,13 +60,8 @@ var (
 
 	showVersion = flag.Bool("version", false, "Shows storage-provisioner's version.")
 
-	timeout = flag.Duration(
-		"timeout", 15*time.Second,
-		"Timeout for waiting for attaching or detaching the volume.",
-	)
-
 	workerThreads = flag.Uint(
-		"worker-threads", 10,
+		"worker-threads", 25,
 		"Number of storage provisioner worker threads",
 	)
 
