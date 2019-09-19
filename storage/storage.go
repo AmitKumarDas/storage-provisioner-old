@@ -73,15 +73,15 @@ func (r *Reconciler) Reconcile(stor *ddp.Storage) error {
 	var found bool
 	if r.providerName, found = findProviderFromStorage(stor); !found {
 		return errors.Errorf(
-			"%s: Reconcile failed: Missing provider annotation %s",
+			"%s: Missing annotation %q",
 			r, storageclassProviderKey,
 		)
 	}
 
 	if r.attacherName, found = findAttacherFromStorage(stor); !found {
 		return errors.Errorf(
-			"%s: Reconcile failed: Missing attacher annotation %s",
-			r, storageAttacherKey,
+			"%s: Missing annotation %q",
+			r, storageCSIAttacherKey,
 		)
 	}
 
@@ -106,6 +106,14 @@ func (r *Reconciler) Reconcile(stor *ddp.Storage) error {
 
 // findPVC will list & find the correct PVC if available
 func (r *Reconciler) findPVC() (*v1.PersistentVolumeClaim, error) {
+	var err error
+
+	defer func() {
+		if err != nil {
+			err = errors.Wrapf(err, "%s: Find PVC failed", r)
+		}
+	}()
+
 	// PVC & storage must have same namespace
 	list, err :=
 		r.PVCLister.PersistentVolumeClaims(r.storage.Namespace).List(labels.Everything())
@@ -124,6 +132,14 @@ func (r *Reconciler) findPVC() (*v1.PersistentVolumeClaim, error) {
 
 // updatePVC updates the PVC if there are any changes to desired state
 func (r *Reconciler) updatePVC(pvc *v1.PersistentVolumeClaim) (bool, error) {
+
+	var err error
+	defer func() {
+		if err != nil {
+			err = errors.Wrapf(err, "%s: Update PVC failed", r)
+		}
+	}()
+
 	if pvc.Spec.Resources.Requests[v1.ResourceStorage] == r.storage.Spec.Capacity {
 		// no changes
 		return false, nil
@@ -133,12 +149,20 @@ func (r *Reconciler) updatePVC(pvc *v1.PersistentVolumeClaim) (bool, error) {
 	copy.Spec.Resources.Requests[v1.ResourceStorage] = r.storage.Spec.Capacity
 
 	// PVC & storage must have same namespace
-	_, err :=
+	_, err =
 		r.Clientset.CoreV1().PersistentVolumeClaims(r.storage.Namespace).Update(copy)
 	return true, err
 }
 
 func (r *Reconciler) createPVC() error {
+	var err error
+
+	defer func() {
+		if err != nil {
+			err = errors.Wrapf(err, "%s: Create PVC failed", r)
+		}
+	}()
+
 	r.nodeName = r.getNodeName()
 
 	// build a new instance of PVC object
@@ -171,6 +195,13 @@ func (r *Reconciler) getNodeName() string {
 // NOTE:
 //	This should be used only for PVC create case
 func (r *Reconciler) newPVC() (*v1.PersistentVolumeClaim, error) {
+	var err error
+	defer func() {
+		if err != nil {
+			err = errors.Wrapf(err, "%s: New PVC failed", r)
+		}
+	}()
+
 	storref, err := ref.GetReference(scheme.Scheme, r.storage)
 	if err != nil {
 		return nil, err
@@ -181,12 +212,12 @@ func (r *Reconciler) newPVC() (*v1.PersistentVolumeClaim, error) {
 			GenerateName: storref.Name,
 			Namespace:    storref.Namespace,
 			Annotations: map[string]string{
-				nodeNameKey:        r.nodeName,
-				storageAttacherKey: r.attacherName,
+				nodeNameKey:           r.nodeName,
+				storageCSIAttacherKey: r.attacherName,
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				metav1.OwnerReference{
-					APIVersion:         storref.APIVersion,
+					APIVersion:         ddp.SchemeGroupVersion.String(),
 					Kind:               storref.Kind,
 					Name:               storref.Name,
 					UID:                storref.UID,

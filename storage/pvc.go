@@ -93,6 +93,12 @@ func (r *PVCReconciler) Reconcile(pvc *v1.PersistentVolumeClaim) error {
 
 // findVA will list & find the correct VolumeAttachment if available
 func (r *PVCReconciler) findVA() (*storage.VolumeAttachment, error) {
+	var err error
+	defer func() {
+		if err != nil {
+			err = errors.Wrapf(err, "%s: Find VA failed", r)
+		}
+	}()
 
 	list, err := r.VALister.List(labels.Everything())
 	if err != nil {
@@ -111,6 +117,12 @@ func (r *PVCReconciler) findVA() (*storage.VolumeAttachment, error) {
 // updateVA updates the given VolumeAttachment in case of any change
 // in the desired state
 func (r *PVCReconciler) updateVA(va *storage.VolumeAttachment) (bool, error) {
+	var err error
+	defer func() {
+		if err != nil {
+			err = errors.Wrapf(err, "%s: Update VA failed", r)
+		}
+	}()
 
 	nodeName, found := findNodeNameFromPVC(r.pvc)
 	if !found || nodeName == "" {
@@ -125,12 +137,22 @@ func (r *PVCReconciler) updateVA(va *storage.VolumeAttachment) (bool, error) {
 
 	// we shall delete the VolumeAttachment & expect a new one
 	// to get created as part of next reconcile invocation
-	return true, r.Clientset.StorageV1beta1().VolumeAttachments().
+	err = r.Clientset.StorageV1beta1().VolumeAttachments().
 		Delete(va.Name, &metav1.DeleteOptions{})
+	return true, err
 }
 
 func (r *PVCReconciler) createVA() error {
-	var found bool
+	var (
+		found bool
+		err   error
+	)
+	defer func() {
+		if err != nil {
+			err = errors.Wrapf(err, "%s: Create VA failed", r)
+		}
+	}()
+
 	r.nodeName, found = findNodeNameFromPVC(r.pvc)
 	if !found {
 		return errors.Errorf(
@@ -156,6 +178,13 @@ func (r *PVCReconciler) createVA() error {
 }
 
 func (r *PVCReconciler) newVA() (*storage.VolumeAttachment, error) {
+	var err error
+	defer func() {
+		if err != nil {
+			err = errors.Wrapf(err, "%s: New VA failed", r)
+		}
+	}()
+
 	pvcref, err := ref.GetReference(scheme.Scheme, r.pvc)
 	if err != nil {
 		return nil, err
