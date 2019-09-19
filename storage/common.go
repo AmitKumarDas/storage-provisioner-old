@@ -30,9 +30,9 @@ const (
 	// This key is expected to be present in API annotations
 	storageclassProviderKey string = "storageprovisioner.ddp.mayadata.io/storageclass-name"
 
-	// storageAttacherKey holds the name of the attacher that will
+	// storageCSIAttacherKey holds the name of the CSI attacher that will
 	// be responsible to attach the storage
-	storageAttacherKey string = "storageprovisioner.ddp.mayadata.io/attacher-name"
+	storageCSIAttacherKey string = "storageprovisioner.ddp.mayadata.io/csi-attacher-name"
 
 	// nodeNameKey holds the name of node where storage should
 	// get attached
@@ -71,13 +71,13 @@ func findProviderFromStorage(storage *ddp.Storage) (string, bool) {
 // findAttacherFromStorage finds the attacher name from Storage API
 func findAttacherFromStorage(storage *ddp.Storage) (string, bool) {
 	anns := storage.GetAnnotations()
-	return findValueFromDict(anns, storageAttacherKey)
+	return findValueFromDict(anns, storageCSIAttacherKey)
 }
 
 // findAttacherFromPVC finds the attacher name from PVC API
 func findAttacherFromPVC(pvc *v1.PersistentVolumeClaim) (string, bool) {
 	anns := pvc.GetAnnotations()
-	return findValueFromDict(anns, storageAttacherKey)
+	return findValueFromDict(anns, storageCSIAttacherKey)
 }
 
 // findNodeNameFromPVC finds the node name from
