@@ -101,31 +101,17 @@ func containsOwner(owners []metav1.OwnerReference, given metav1.OwnerReference) 
 	return false
 }
 
-// isStorageOwner returns true of given storage is a owner
-// from the given list of owners
-func isStorageOwner(
-	owners []metav1.OwnerReference, storage *v1.ObjectReference,
+// isObjectReferenceAnOwner returns true if given ObjectReference
+// is present in the given list of owners
+func isObjectReferenceAnOwner(
+	owners []metav1.OwnerReference, ref *v1.ObjectReference,
 ) bool {
 
 	return containsOwner(owners, metav1.OwnerReference{
-		APIVersion: storage.APIVersion,
-		Kind:       storage.Kind,
-		Name:       storage.Name,
-		UID:        storage.UID,
-	})
-}
-
-// isPVCOwner returns true if given pvc is a owner from
-// the given list of owners
-func isPVCOwner(
-	owners []metav1.OwnerReference, pvc *v1.ObjectReference,
-) bool {
-
-	return containsOwner(owners, metav1.OwnerReference{
-		APIVersion: pvc.APIVersion,
-		Kind:       pvc.Kind,
-		Name:       pvc.Name,
-		UID:        pvc.UID,
+		APIVersion: ref.APIVersion,
+		Kind:       ref.Kind,
+		Name:       ref.Name,
+		UID:        ref.UID,
 	})
 }
 
