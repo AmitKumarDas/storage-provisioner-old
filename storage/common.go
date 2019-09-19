@@ -103,7 +103,10 @@ func containsOwner(owners []metav1.OwnerReference, given metav1.OwnerReference) 
 
 // isStorageOwner returns true of given storage is a owner
 // from the given list of owners
-func isStorageOwner(owners []metav1.OwnerReference, storage *ddp.Storage) bool {
+func isStorageOwner(
+	owners []metav1.OwnerReference, storage *v1.ObjectReference,
+) bool {
+
 	return containsOwner(owners, metav1.OwnerReference{
 		APIVersion: storage.APIVersion,
 		Kind:       storage.Kind,
@@ -114,7 +117,10 @@ func isStorageOwner(owners []metav1.OwnerReference, storage *ddp.Storage) bool {
 
 // isPVCOwner returns true if given pvc is a owner from
 // the given list of owners
-func isPVCOwner(owners []metav1.OwnerReference, pvc *v1.PersistentVolumeClaim) bool {
+func isPVCOwner(
+	owners []metav1.OwnerReference, pvc *v1.ObjectReference,
+) bool {
+
 	return containsOwner(owners, metav1.OwnerReference{
 		APIVersion: pvc.APIVersion,
 		Kind:       pvc.Kind,
@@ -127,8 +133,10 @@ func isPVCOwner(owners []metav1.OwnerReference, pvc *v1.PersistentVolumeClaim) b
 // is owned by any storage
 func isStorageKindOwnerOfPVC(pvc *v1.PersistentVolumeClaim) bool {
 	owners := pvc.GetOwnerReferences()
+
 	for _, o := range owners {
-		if o.APIVersion == ddp.GroupName+"/"+ddp.Version {
+		if o.Kind == "Storage" &&
+			o.APIVersion == ddp.SchemeGroupVersion.String() {
 			return true
 		}
 	}

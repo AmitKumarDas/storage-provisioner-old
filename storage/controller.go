@@ -187,20 +187,19 @@ func (ctrl *Controller) pvcAdded(obj interface{}) {
 
 	if !isStorageKindOwnerOfPVC(pvc) {
 		// this PVC does not belong to storage API
+		klog.V(3).Infof(
+			"%s: Ignoring PVC %s/%s: Storage is not owner",
+			ctrl, pvc.Namespace, pvc.Name,
+		)
 		return
 	}
+
 	ctrl.PVCQueue.Add(pvcQueueKey(pvc))
 }
 
 // pvcUpdated reacts to a PVC update
 func (ctrl *Controller) pvcUpdated(old, new interface{}) {
-	newpvc := new.(*v1.PersistentVolumeClaim)
-
-	if !isStorageKindOwnerOfPVC(newpvc) {
-		// this PVC does not belong to storage API
-		return
-	}
-	ctrl.PVCQueue.Add(pvcQueueKey(newpvc))
+	ctrl.pvcAdded(new)
 }
 
 // syncStorage starts reconciliation of storage as per the needs of
