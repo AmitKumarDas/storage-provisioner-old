@@ -41,6 +41,10 @@ type PVCReconciler struct {
 	// pvc object that will be reconciled
 	pvc *v1.PersistentVolumeClaim
 
+	// reference to above pvc object that will have
+	// extra info like APIVersion and Kind
+	pvcRef *v1.ObjectReference
+
 	// node where the storage should get attached
 	nodeName string
 
@@ -70,6 +74,18 @@ func (r *PVCReconciler) Reconcile(pvc *v1.PersistentVolumeClaim) error {
 			"%s: Reconcile ignored: Volume not bound", r,
 		)
 		return nil
+	}
+
+	var err error
+	defer func() {
+		if err != nil {
+			errors.Wrapf(err, "%s: Reconcile failed", r)
+		}
+	}()
+
+	r.pvcRef, err = ref.GetReference(scheme.Scheme, r.pvc)
+	if err != nil {
+		return err
 	}
 
 	// find if VolumeAttachment is created in previous reconcile attempt
@@ -106,7 +122,7 @@ func (r *PVCReconciler) findVA() (*storage.VolumeAttachment, error) {
 	}
 
 	for _, va := range list {
-		isowner := isPVCOwner(va.OwnerReferences, r.pvc)
+		isowner := isPVCOwner(va.OwnerReferences, r.pvcRef)
 		if isowner {
 			return va, nil
 		}
@@ -156,50 +172,37 @@ func (r *PVCReconciler) createVA() error {
 	r.nodeName, found = findNodeNameFromPVC(r.pvc)
 	if !found {
 		return errors.Errorf(
-			"%s: Reconcile failed: Node name not found", r,
+			"%s: Create VA failed: Node name not found", r,
 		)
 	}
 
 	r.attacherName, found = findAttacherFromPVC(r.pvc)
 	if !found {
 		return errors.Errorf(
-			"%s: Reconcile failed: Attacher name not found", r,
+			"%s: Create VA failed: Attacher name not found", r,
 		)
 	}
 
-	va, err := r.newVA()
-	if err != nil {
-		return err
-	}
+	va := r.newVA()
 
 	_, err =
 		r.Clientset.StorageV1beta1().VolumeAttachments().Create(va)
 	return err
 }
 
-func (r *PVCReconciler) newVA() (*storage.VolumeAttachment, error) {
-	var err error
-	defer func() {
-		if err != nil {
-			err = errors.Wrapf(err, "%s: New VA failed", r)
-		}
-	}()
-
-	pvcref, err := ref.GetReference(scheme.Scheme, r.pvc)
-	if err != nil {
-		return nil, err
-	}
+func (r *PVCReconciler) newVA() *storage.VolumeAttachment {
 
 	return &storage.VolumeAttachment{
 		ObjectMeta: metav1.ObjectMeta{
-			// pvc name is supposed to be generated in this case
-			Name: pvcref.Name,
+			// since pvc name is generated in this case
+			// we can use the same name for VolumeAttachment
+			Name: r.pvcRef.Name,
 			OwnerReferences: []metav1.OwnerReference{
 				metav1.OwnerReference{
-					APIVersion:         pvcref.APIVersion,
-					Kind:               pvcref.Kind,
-					Name:               pvcref.Name,
-					UID:                pvcref.UID,
+					APIVersion:         r.pvcRef.APIVersion,
+					Kind:               r.pvcRef.Kind,
+					Name:               r.pvcRef.Name,
+					UID:                r.pvcRef.UID,
 					Controller:         boolPtr(true),
 					BlockOwnerDeletion: boolPtr(true),
 				},
@@ -212,5 +215,5 @@ func (r *PVCReconciler) newVA() (*storage.VolumeAttachment, error) {
 			NodeName: r.nodeName,
 			Attacher: r.attacherName,
 		},
-	}, nil
+	}
 }

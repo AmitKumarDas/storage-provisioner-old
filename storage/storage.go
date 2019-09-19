@@ -43,6 +43,10 @@ type Reconciler struct {
 	// storage that will get reconciled
 	storage *ddp.Storage
 
+	// reference to above storage object which has extra
+	// information like APIVersion & Kind
+	storageRef *v1.ObjectReference
+
 	// name of the storage provider
 	providerName string
 
@@ -70,18 +74,30 @@ func (r *Reconciler) String() string {
 func (r *Reconciler) Reconcile(stor *ddp.Storage) error {
 	r.storage = stor
 
-	var found bool
+	var (
+		found bool
+		err   error
+	)
+	defer func() {
+		if err != nil {
+			errors.Wrapf(err, "%s: Reconcile failed", r)
+		}
+	}()
+
+	r.storageRef, err = ref.GetReference(scheme.Scheme, r.storage)
+	if err != nil {
+		return err
+	}
+
 	if r.providerName, found = findProviderFromStorage(stor); !found {
 		return errors.Errorf(
-			"%s: Missing annotation %q",
-			r, storageclassProviderKey,
+			"Missing annotation %q", storageclassProviderKey,
 		)
 	}
 
 	if r.attacherName, found = findAttacherFromStorage(stor); !found {
 		return errors.Errorf(
-			"%s: Missing annotation %q",
-			r, storageCSIAttacherKey,
+			"Missing annotation %q", storageCSIAttacherKey,
 		)
 	}
 
@@ -122,7 +138,7 @@ func (r *Reconciler) findPVC() (*v1.PersistentVolumeClaim, error) {
 	}
 
 	for _, pvc := range list {
-		isowner := isStorageOwner(pvc.OwnerReferences, r.storage)
+		isowner := isStorageOwner(pvc.OwnerReferences, r.storageRef)
 		if isowner {
 			return pvc, nil
 		}
@@ -166,10 +182,7 @@ func (r *Reconciler) createPVC() error {
 	r.nodeName = r.getNodeName()
 
 	// build a new instance of PVC object
-	pvc, err := r.newPVC()
-	if err != nil {
-		return err
-	}
+	pvc := r.newPVC()
 
 	// PVC & storage must have same namespace
 	_, err =
@@ -194,33 +207,22 @@ func (r *Reconciler) getNodeName() string {
 //
 // NOTE:
 //	This should be used only for PVC create case
-func (r *Reconciler) newPVC() (*v1.PersistentVolumeClaim, error) {
-	var err error
-	defer func() {
-		if err != nil {
-			err = errors.Wrapf(err, "%s: New PVC failed", r)
-		}
-	}()
-
-	storref, err := ref.GetReference(scheme.Scheme, r.storage)
-	if err != nil {
-		return nil, err
-	}
+func (r *Reconciler) newPVC() *v1.PersistentVolumeClaim {
 
 	return &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: storref.Name,
-			Namespace:    storref.Namespace,
+			GenerateName: r.storageRef.Name,
+			Namespace:    r.storageRef.Namespace,
 			Annotations: map[string]string{
 				nodeNameKey:           r.nodeName,
 				storageCSIAttacherKey: r.attacherName,
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				metav1.OwnerReference{
-					APIVersion:         ddp.SchemeGroupVersion.String(),
-					Kind:               storref.Kind,
-					Name:               storref.Name,
-					UID:                storref.UID,
+					APIVersion:         r.storageRef.APIVersion,
+					Kind:               r.storageRef.Kind,
+					Name:               r.storageRef.Name,
+					UID:                r.storageRef.UID,
 					Controller:         boolPtr(true),
 					BlockOwnerDeletion: boolPtr(true),
 				},
@@ -237,5 +239,5 @@ func (r *Reconciler) newPVC() (*v1.PersistentVolumeClaim, error) {
 				v1.ReadWriteOnce,
 			},
 		},
-	}, nil
+	}
 }
