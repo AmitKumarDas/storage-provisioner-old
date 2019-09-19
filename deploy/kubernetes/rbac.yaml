@@ -1,64 +1,52 @@
 # This YAML file contains all RBAC objects that are necessary to 
 # run ddp storage provisioner.
-
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: ddp-service-account
-  # replace with non-default namespace name
-  namespace: default
+  name: ddp-storage-provisioner
+  namespace: ddp
 
 ---
-# Attacher must be able to work with PVs, nodes and VolumeAttachments
+# Provisioner must be able to work with following resources
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: external-attacher-runner
+  name: ddp-storage-provisioner
 rules:
+  - apiGroups: ["ddp.mayadata.io"]
+    resources: ["storages"]
+    verbs: ["get", "list", "watch", "update"]
   - apiGroups: [""]
-    resources: ["persistentvolumes"]
-    verbs: ["get", "list", "watch", "update", "patch"]
-  - apiGroups: [""]
-    resources: ["nodes"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["storage.k8s.io"]
-    resources: ["csinodes"]
-    verbs: ["get", "list", "watch"]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "create", "update"]
   - apiGroups: ["storage.k8s.io"]
     resources: ["volumeattachments"]
-    verbs: ["get", "list", "watch", "update", "patch"]
-#Secret permission is optional.
-#Enable it if you need value from secret.
-#For example, you have key `csi.storage.k8s.io/controller-publish-secret-name` in StorageClass.parameters
-#see https://kubernetes-csi.github.io/docs/secrets-and-credentials.html
-#  - apiGroups: [""]
-#    resources: ["secrets"]
-#    verbs: ["get", "list"]
+    verbs: ["get", "list", "watch", "create", "update"]
 
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: csi-attacher-role
+  name: ddp-storage-provisioner
 subjects:
   - kind: ServiceAccount
-    name: csi-attacher
-    # replace with non-default namespace name
-    namespace: default
+    name: ddp-storage-provisioner
+    namespace: ddp
 roleRef:
   kind: ClusterRole
-  name: external-attacher-runner
+  name: ddp-storage-provisioner
   apiGroup: rbac.authorization.k8s.io
 
 ---
-# Attacher must be able to work with configmaps or leases in the current namespace
-# if (and only if) leadership election is enabled
+# Provisioner must be able to work with configmaps or leases
+# in the current namespace if (and only if) leadership election 
+# is enabled
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  # replace with non-default namespace name
-  namespace: default
-  name: external-attacher-cfg
+  namespace: ddp
+  name: ddp-storage-provisioner-cfg
 rules:
 - apiGroups: ["coordination.k8s.io"]
   resources: ["leases"]
@@ -68,15 +56,13 @@ rules:
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: csi-attacher-role-cfg
-  # replace with non-default namespace name
-  namespace: default
+  name: ddp-storage-provisioner-cfg
+  namespace: ddp
 subjects:
   - kind: ServiceAccount
-    name: csi-attacher
-    # replace with non-default namespace name
-    namespace: default
+    name: ddp-storage-provisioner
+    namespace: ddp
 roleRef:
   kind: Role
-  name: external-attacher-cfg
+  name: ddp-storage-provisioner-cfg
   apiGroup: rbac.authorization.k8s.io

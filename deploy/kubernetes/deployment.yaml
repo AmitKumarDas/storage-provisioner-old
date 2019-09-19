@@ -1,11 +1,6 @@
 # This YAML file demonstrates how to deploy the stotage
-# provisioner for use with the Google PD CSI driver. It
-# depends on the RBAC definitions from rbac.yaml.
-
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: ddp
+# provisioner. It depends on the definitions from namespace.yaml & 
+# rbac.yaml.
 
 ---
 kind: Deployment
@@ -17,9 +12,15 @@ metadata:
     ddp-project-name: storage-provisioner
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: ddp-storage-provisioner
   template:
+    metadata:
+      labels:
+        app: ddp-storage-provisioner
     spec:
-      serviceAccount: ddp-service-account
+      serviceAccount: ddp-storage-provisioner
       containers:
         - name: ddp-storage-provisioner
           image: quay.io/amitkumardas/storage-provisioner:latest

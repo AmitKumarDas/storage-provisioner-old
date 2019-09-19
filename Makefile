@@ -13,33 +13,35 @@ GO_FLAGS = -gcflags '-N -l' -ldflags "$(BUILD_LDFLAGS)"
 build: vendor generated_files unit-test $(IMG_NAME)
 
 $(IMG_NAME):
-	@echo "Making binary $@"
+	@echo "Bulding binary $@ ..."
 	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=off \
 		go build $(GO_FLAGS) -o $@ cmd/main.go
 
 .PHONY: unit-test
 unit-test:
+	@echo "Running $@ ..."
 	@pkgs="$$(go list ./... | grep -v '/client/generated/')" ; \
 		go test $${pkgs}
 
 .PHONY: integration-test
 integration-test:
+	@echo "Running $@ ..."
 	go test -i ./test/integration/...
 	PATH="$(PWD)/hack/bin:$(PATH)" go test ./test/integration/... -v -timeout 5m -args -v=6
 
 .PHONY: image
 image:
-	@echo "Making image ..."
+	@echo "Running $@ ..."
 	docker build -t $(REGISTRY)/$(IMG_NAME):$(PACKAGE_VERSION) .
 
 .PHONY: push
 push: image
-	@echo "Pushing image ..."
+	@echo "Running $@ ..."
 	@docker push $(REGISTRY)/$(IMG_NAME):$(PACKAGE_VERSION)
 
 .PHONY: vendor
 vendor: go.mod go.sum
-	@echo "Vendor update ..."
+	@echo "Running $@ ..."
 	@GO111MODULE=on go mod download
 	@GO111MODULE=on go mod vendor
 
