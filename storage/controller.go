@@ -171,14 +171,7 @@ func (ctrl *Controller) storageAdded(obj interface{}) {
 
 // storageAdded reacts to a storage update
 func (ctrl *Controller) storageUpdated(old, new interface{}) {
-	oldStor := old.(*ddp.Storage)
-	newStor := new.(*ddp.Storage)
-
-	if oldStor.ResourceVersion == newStor.ResourceVersion {
-		// nothing needs to be done if there are no changes
-		return
-	}
-	ctrl.StorageQueue.Add(storageQueueKey(newStor))
+	ctrl.storageAdded(new)
 }
 
 // pvcAdded reacts to a PVC creation
