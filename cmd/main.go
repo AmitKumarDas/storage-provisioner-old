@@ -24,8 +24,10 @@ import (
 	"os"
 	"time"
 
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
@@ -33,6 +35,7 @@ import (
 
 	"github.com/AmitKumarDas/storage-provisioner/build"
 	ddpkubernetes "github.com/AmitKumarDas/storage-provisioner/client/generated/clientset/versioned"
+	ddpscheme "github.com/AmitKumarDas/storage-provisioner/client/generated/clientset/versioned/scheme"
 	ddpinformers "github.com/AmitKumarDas/storage-provisioner/client/generated/informer/externalversions"
 	"github.com/AmitKumarDas/storage-provisioner/storage"
 	"github.com/kubernetes-csi/csi-lib-utils/leaderelection"
@@ -116,6 +119,8 @@ func main() {
 		klog.Error("option -worker-threads must be greater than zero")
 		os.Exit(1)
 	}
+
+	utilruntime.Must(ddpscheme.AddToScheme(scheme.Scheme))
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
