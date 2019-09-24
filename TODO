@@ -1,11 +1,11 @@
 
---- NOTES ----
+### NOTES
 
 Spec == What you want == Desire == Can change
 Annotations == How to get to your desired state == Rarely change
 Label == Mark == Category == A combination != Not a placeholder of Values == Never change
 
---- Immediate Actions
+### Immediate Actions
 - Test Manually
 - Update docs with sample yamls
 
@@ -17,7 +17,7 @@ Label == Mark == Category == A combination != Not a placeholder of Values == Nev
 - Reconcile should return (bool, error) where bool indicates a re-queue
 
 
---- Next Actions
+### Next Actions
 - Errors should result into Events
 - Errors should be pushed into status either 
 1/ as conditions or
@@ -33,3 +33,6 @@ Label == Mark == Category == A combination != Not a placeholder of Values == Nev
 
 - Automated Test
 - Make use of Metac
+
+### References
+- https://github.com/kubernetes/community/blob/master/contributors/design-proposals/storage/container-storage-interface.md
