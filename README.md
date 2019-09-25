@@ -2,8 +2,12 @@
 Simplified storage operations using Kubernetes & CSI.
 
 ## Roadmap
-- DONE: Provision GKE based PD via its CSI driver
-- DONE: Attach provisioned PD to a given Kubernetes node
+- GKE
+  - DONE: Provision PD via its CSI driver
+  - DONE: Attach provisioned PD to a given Kubernetes node
+- EKS
+  - DONE: Provision EBS disk via its CSI driver
+  - DONE: Attach provisioned EBS disk to a given Kubernetes node
 
 ## Following steps describe storage provisioner working with GKE Persistent Disk(s)
 - Have a Kubernetes setup with minimum version of 1.13.7
@@ -98,7 +102,7 @@ kubectl apply -f deploy/kubernetes/deployment.yaml
 - Apply a storage
 
 ```bash
-kubectl apply -f example/storage.yaml
+kubectl apply -f example/gke/storage.yaml
 ```
 ```yaml
 # kubectl get stor magic-stor -oyaml
