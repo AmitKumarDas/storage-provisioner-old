@@ -176,8 +176,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	// define the run func
-	run := func(ctx context.Context) {
+	// define the controller run func, It is a wrapper over original
+	// controller run function with context management
+	ctrlRun := func(ctx context.Context) {
 		// create a stop channel & pass this wherever needed
 		stopCh := ctx.Done()
 
@@ -189,11 +190,11 @@ func main() {
 	}
 
 	if !*enableLeaderElection {
-		run(context.TODO())
+		ctrlRun(context.TODO())
 	} else {
 		// Name of config map with leader election lock
 		lockName := controllerName + "-leader"
-		le := leaderelection.NewLeaderElection(clientset, lockName, run)
+		le := leaderelection.NewLeaderElection(clientset, lockName, ctrlRun)
 
 		if *leaderElectionNamespace != "" {
 			le.WithNamespace(*leaderElectionNamespace)

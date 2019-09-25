@@ -8,6 +8,7 @@ Label == Mark == Category == A combination != Not a placeholder of Values == Nev
 ### Immediate Actions
 - Test Manually
 - Update docs with sample yamls
+- Changes to stor are not reflected - Reconcile is not working
 
 
 - Add finalizer:
