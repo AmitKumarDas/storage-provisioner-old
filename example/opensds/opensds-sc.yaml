@@ -1,0 +1,13 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: csi-sc-opensdsplugin
+provisioner: csi-opensdsplugin
+parameters:
+  attachMode: rw
+  profile: {{ opensds-profile-id }}
+allowedTopologies:
+- matchLabelExpressions:
+  - key: topology.csi-opensdsplugin/zone
+    values:
+    - default
